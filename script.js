@@ -77,35 +77,43 @@ function rescaleCanvas(e) {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-
-    let displayWidth, displayHeight, angle;
-    if (mousePos) {
-      const dx = mousePos.x - centerX;
-      const dy = mousePos.y - centerY;
-      const diameter = Math.sqrt(dx * dx + dy * dy) * 2;
-      const scaleFactor = diameter / Math.sqrt(img.width * img.width + img.height * img.height);
-      displayWidth = img.width * scaleFactor;
-      displayHeight = img.height * scaleFactor;
-      angle = Math.atan2(dy, dx) - Math.atan2(img.height, img.width);
-    } else {
-      const widthScaleFactor = canvas.width / img.width;
-      const heightScaleFactor = canvas.height / img.height;
-      const scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
-      displayWidth = img.width * scaleFactor;
-      displayHeight = img.height * scaleFactor;
-      angle = 0;
-    }
+    const quadrantWidth = canvas.width / 2;
+    const quadrantHeight = canvas.height / 2;
+    const centers = [
+      { x: quadrantWidth / 2, y: quadrantHeight / 2 },
+      { x: 3 * quadrantWidth / 2, y: quadrantHeight / 2 },
+      { x: quadrantWidth / 2, y: 3 * quadrantHeight / 2 },
+      { x: 3 * quadrantWidth / 2, y: 3 * quadrantHeight / 2 },
+    ];
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    if (useAngle) {
-      ctx.rotate(angle);
+    for (const center of centers) {
+      let displayWidth, displayHeight, angle;
+      if (mousePos) {
+        const dx = mousePos.x - center.x;
+        const dy = mousePos.y - center.y;
+        const diameter = Math.sqrt(dx * dx + dy * dy) * 2;
+        const scaleFactor = diameter / Math.sqrt(img.width * img.width + img.height * img.height);
+        displayWidth = img.width * scaleFactor;
+        displayHeight = img.height * scaleFactor;
+        angle = Math.atan2(dy, dx) - Math.atan2(img.height, img.width);
+      } else {
+        const widthScaleFactor = quadrantWidth / img.width;
+        const heightScaleFactor = quadrantHeight / img.height;
+        const scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
+        displayWidth = img.width * scaleFactor;
+        displayHeight = img.height * scaleFactor;
+        angle = 0;
+      }
+
+      ctx.save();
+      ctx.translate(center.x, center.y);
+      if (useAngle) {
+        ctx.rotate(angle);
+      }
+      ctx.drawImage(img, -displayWidth / 2, -displayHeight / 2, displayWidth, displayHeight);
+      ctx.restore();
     }
-    ctx.drawImage(img, -displayWidth / 2, -displayHeight / 2, displayWidth, displayHeight);
-    ctx.restore();
   }
 }
 
