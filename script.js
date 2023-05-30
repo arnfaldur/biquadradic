@@ -79,35 +79,36 @@ function rescaleCanvas(e) {
 
     const quadrantWidth = canvas.width / 2;
     const quadrantHeight = canvas.height / 2;
-    const centers = [
-      { x: quadrantWidth / 2, y: quadrantHeight / 2 },
-      { x: 3 * quadrantWidth / 2, y: quadrantHeight / 2 },
-      { x: quadrantWidth / 2, y: 3 * quadrantHeight / 2 },
-      { x: 3 * quadrantWidth / 2, y: 3 * quadrantHeight / 2 },
-    ];
+
+    let displayWidth, displayHeight, angle;
+
+    // Compute scale and rotation based on mouse position in the first quadrant
+    if (mousePos) {
+      const dx = mousePos.x - quadrantWidth / 2;
+      const dy = mousePos.y - quadrantHeight / 2;
+      const diameter = Math.sqrt(dx * dx + dy * dy) * 2;
+      const scaleFactor = diameter / Math.sqrt(img.width * img.width + img.height * img.height);
+      displayWidth = img.width * scaleFactor;
+      displayHeight = img.height * scaleFactor;
+      angle = Math.atan2(dy, dx) - Math.atan2(img.height, img.width);
+    } else {
+      const widthScaleFactor = quadrantWidth / img.width;
+      const heightScaleFactor = quadrantHeight / img.height;
+      const scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
+      displayWidth = img.width * scaleFactor;
+      displayHeight = img.height * scaleFactor;
+      angle = 0;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const center of centers) {
-      let displayWidth, displayHeight, angle;
-      if (mousePos) {
-        const dx = mousePos.x - center.x;
-        const dy = mousePos.y - center.y;
-        const diameter = Math.sqrt(dx * dx + dy * dy) * 2;
-        const scaleFactor = diameter / Math.sqrt(img.width * img.width + img.height * img.height);
-        displayWidth = img.width * scaleFactor;
-        displayHeight = img.height * scaleFactor;
-        angle = Math.atan2(dy, dx) - Math.atan2(img.height, img.width);
-      } else {
-        const widthScaleFactor = quadrantWidth / img.width;
-        const heightScaleFactor = quadrantHeight / img.height;
-        const scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
-        displayWidth = img.width * scaleFactor;
-        displayHeight = img.height * scaleFactor;
-        angle = 0;
-      }
+
+    // Draw the image in each quadrant with the same scale and rotation
+    for (let i = 0; i < 4; ++i) {
+      const centerX = (i % 2 + 0.5) * quadrantWidth;
+      const centerY = (Math.floor(i / 2) + 0.5) * quadrantHeight;
 
       ctx.save();
-      ctx.translate(center.x, center.y);
+      ctx.translate(centerX, centerY);
       if (useAngle) {
         ctx.rotate(angle);
       }
