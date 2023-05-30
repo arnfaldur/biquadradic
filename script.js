@@ -57,22 +57,58 @@ function setImage() {
   };
 }
 
-function rescaleCanvas() {
+let mousePos = null;
+const canvas = document.getElementById('imageCanvas');
+
+let useAngle = false;
+
+canvas.addEventListener("mouseleave", () => { mousePos = null; });
+canvas.addEventListener("mousedown", () => { useAngle = !useAngle; console.log("setting angle", useAngle); });
+
+function rescaleCanvas(e) {
+  if (e) {
+    mousePos = { x: e.clientX, y: e.clientY };
+  } else {
+    mousePos = null;
+  }
+
   if (img) {
-    const canvas = document.getElementById('imageCanvas');
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    const widthScaleFactor = canvas.width / img.width;
-    const heightScaleFactor = canvas.height / img.height;
-    const scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
-    const displayWidth = img.width * scaleFactor;
-    const displayHeight = img.height * scaleFactor;
-    const displayX = (canvas.width - displayWidth) / 2;
-    const displayY = (canvas.height - displayHeight) / 2;
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    let displayWidth, displayHeight, angle;
+    if (mousePos) {
+      const dx = mousePos.x - centerX;
+      const dy = mousePos.y - centerY;
+      const diameter = Math.sqrt(dx * dx + dy * dy) * 2;
+      const scaleFactor = diameter / Math.sqrt(img.width * img.width + img.height * img.height);
+      displayWidth = img.width * scaleFactor;
+      displayHeight = img.height * scaleFactor;
+      angle = Math.atan2(dy, dx) - Math.atan2(img.height, img.width);
+    } else {
+      const widthScaleFactor = canvas.width / img.width;
+      const heightScaleFactor = canvas.height / img.height;
+      const scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
+      displayWidth = img.width * scaleFactor;
+      displayHeight = img.height * scaleFactor;
+      angle = 0;
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, displayX, displayY, displayWidth, displayHeight);
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    if (useAngle) {
+      ctx.rotate(angle);
+    }
+    ctx.drawImage(img, -displayWidth / 2, -displayHeight / 2, displayWidth, displayHeight);
+    ctx.restore();
   }
 }
 
 window.addEventListener('resize', rescaleCanvas);
+
+window.addEventListener('mousemove', rescaleCanvas);
