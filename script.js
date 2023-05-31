@@ -58,7 +58,7 @@ function setImage() {
 let mousePos = null;
 const canvas = document.getElementById('imageCanvas');
 
-let useAngle = false;
+let useAngle = true;
 
 canvas.addEventListener("mouseleave", () => { mousePos = null; });
 canvas.addEventListener("mousedown", () => { useAngle = !useAngle; });
@@ -102,7 +102,6 @@ const vertexShaderSource = `#version 300 es
 in vec4 position;
 in vec2 texcoord;
 
-uniform mat4 matrix;
 uniform vec2 canvasSize;
 uniform vec2 scale;
 uniform float angle;
@@ -111,113 +110,12 @@ uniform vec2 offset;
 out vec2 v_texcoord;
 
 void main() {
-    mat4 identity = mat4(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-    mat4 canvasScale = mat4(
-        canvasSize.x, 0.0, 0.0, 0.0,
-        0.0, canvasSize.y, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-    mat4 aspectScale = mat4(
-        canvasSize.x/canvasSize.y, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-    mat4 reflect = mat4(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, -1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-    mat4 scaling = mat4(
-        scale.x, 0.0, 0.0, 0.0,
-        0.0, scale.y, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-    mat4 rotation = mat4(
-        cos(angle), -sin(angle), 0.0, 0.0,
-        sin(angle), cos(angle), 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-    mat4 translation = mat4(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        offset.x, offset.y, 0.0, 1.0
-    );
-    mat4 centerTranslate = mat4(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        -0.5, -0.5, 0.0, 1.0
-    );
-    mat4 doubleScale = mat4(
-        2.0, 0.0, 0.0, 0.0,
-        0.0, 2.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-
-    mat4 transformation = identity;
-    transformation = centerTranslate * transformation;
-    // transformation = inverse(canvasScale) * transformation;
-    // transformation = scaling * transformation;
-    // transformation = reflect * transformation;
-    // transformation = aspectScale * transformation;
-    // transformation = rotation * transformation;
-    // transformation = inverse(aspectScale) * transformation;
-    // transformation = canvasScale * transformation;
-    // transformation = translation * transformation;
-    // transformation = inverse(canvasScale) * transformation;
-    // transformation = centerTranslate * transformation;
-    // transformation = doubleScale * transformation;
-
-    // transformation = doubleScale * centerTranslate * inverse(canvasScale) * translation * canvasScale * inverse(aspectScale) * rotation * aspectScale * reflect * scaling * inverse(canvasScale) * centerTranslate * transformation;
-
-    mat4 initialPosition = mat4(
-        scale.x/canvasSize.x, 0.0, 0.0, 0.0,
-        0.0, -scale.y/canvasSize.y, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-    mat4 scaledRotation = mat4(
-        cos(angle), -canvasSize.x*sin(angle)/canvasSize.y, 0.0, 0.0,
-        canvasSize.y*sin(angle)/canvasSize.x, cos(angle), 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
-    mat4 scaledTranslation = mat4(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        offset.x/canvasSize.x, offset.y/canvasSize.y, 0.0, 1.0
-    );
-    mat4 doubleTranslate = mat4(
-        2.0, 0.0, 0.0, 0.0,
-        0.0, 2.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        -1, -1, 0.0, 1.0
-    );
-    transformation = initialPosition * transformation;
-    transformation = scaledRotation * transformation;
-    transformation = scaledTranslation * transformation;
-    transformation = doubleTranslate * transformation;
-
-    //gl_Position = doubleTranslate * scaledTranslation * scaledRotation * initialPosition * position;
-
-    transformation = mat4(
+    mat4 transformation = mat4(
         2.0*scale.x*cos(angle)/canvasSize.x, -2.0*scale.x*sin(angle)/canvasSize.y, 0.0, 0.0,
         -2.0*scale.y*sin(angle)/canvasSize.x, -2.0*scale.y*cos(angle)/canvasSize.y, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
-        -1.0 + (2.0*offset.x - scale.x*cos(angle) + scale.y*sin(angle))/canvasSize.x, -1.0 + (2.0*offset.y + scale.x*sin(angle) + scale.y*cos(angle))/canvasSize.y, 0.0, 1.0
+        -1.0 + (2.0*offset.x - scale.x*cos(angle) + scale.y*sin(angle))/canvasSize.x,
+        -1.0 + (2.0*offset.y + scale.x*sin(angle) + scale.y*cos(angle))/canvasSize.y, 0.0, 1.0
     );
 
     gl_Position = transformation * position;
@@ -231,18 +129,84 @@ precision mediump float;
 
 in vec2 v_texcoord;
 out vec4 fragColor;
-uniform sampler2D texture;
+uniform sampler2D tex;
 uniform ivec2 resolution;
 uniform vec2 center;
+uniform int samplingAlgorithm;
+
+vec4 getBoi(vec2 scoord) {
+    return texelFetch(tex, ivec2(scoord), 0);
+}
+
+vec4 secondDegree(vec4 a, vec4 b, float d) {
+    if (d < 0.5) {
+        return a + 2. * (b - a) * d * d;
+    } else {
+        return b - 2. * (b - a) * (d - 1.) * (d - 1.);
+    }
+}
+
+vec4 thirdDegree(vec4 a, vec4 b, float x) {
+    return mix(a, b, -x * x * (2.0*x-3.0));
+}
 
 void main() {
     vec2 coord = v_texcoord;
-    vec2 centered = abs((gl_FragCoord.xy - center) / vec2(resolution) * 4.0);
+    vec2 scoord = coord * vec2(textureSize(tex, 0)); // scaled coord
+    vec2 centered = (gl_FragCoord.xy - center) / vec2(resolution) * 2.0;
+    centered = abs(vec2(centered.x * 3.0, centered.y * 2.0));
     float mask = max(centered.x, centered.y);
     mask = clamp(1.0 - floor(mask), 0.0, 1.0);
 
+
+
     if (mask > 0.0) {
-        fragColor = texelFetch(texture, ivec2(coord * vec2(textureSize(texture, 0))), 0);
+        if (samplingAlgorithm == 0) { // bottom left
+            // bilinear
+            // fragColor = texture(tex, coord, 0.0); // built in bilinear
+            scoord -= vec2(0.5,0.5);
+            vec4 tr = getBoi(vec2(ceil(scoord.x), ceil(scoord.y)));
+            vec4 tl = getBoi(vec2(floor(scoord.x), ceil(scoord.y)));
+            vec4 br = getBoi(vec2(ceil(scoord.x), floor(scoord.y)));
+            vec4 bl = getBoi(vec2(floor(scoord.x), floor(scoord.y)));
+            fragColor = mix(
+                mix(bl,br, fract(scoord.x)),
+                mix(tl,tr, fract(scoord.x)),
+                fract(scoord.y)
+            );// - texture(tex, coord, 0.0);
+        } else if (samplingAlgorithm == 1) { // bottom center
+            // other
+            scoord -= vec2(0.5,0.5);
+            vec4 tr = getBoi(vec2(ceil(scoord.x), ceil(scoord.y)));
+            vec4 tl = getBoi(vec2(floor(scoord.x), ceil(scoord.y)));
+            vec4 br = getBoi(vec2(ceil(scoord.x), floor(scoord.y)));
+            vec4 bl = getBoi(vec2(floor(scoord.x), floor(scoord.y)));
+            fragColor = thirdDegree(
+                thirdDegree(bl,br, fract(scoord.x)),
+                thirdDegree(tl,tr, fract(scoord.x)),
+                fract(scoord.y)
+            );
+        } else if (samplingAlgorithm == 2) { // bottom right
+            // secondDegree
+            scoord -= vec2(0.5,0.5);
+            vec4 tr = getBoi(vec2(ceil(scoord.x), ceil(scoord.y)));
+            vec4 tl = getBoi(vec2(floor(scoord.x), ceil(scoord.y)));
+            vec4 br = getBoi(vec2(ceil(scoord.x), floor(scoord.y)));
+            vec4 bl = getBoi(vec2(floor(scoord.x), floor(scoord.y)));
+            fragColor = secondDegree(
+                secondDegree(bl,br, fract(scoord.x)),
+                secondDegree(tl,tr, fract(scoord.x)),
+                fract(scoord.y)
+            );
+        } else if (samplingAlgorithm == 3) { // top right
+            // nearest neighbor
+            fragColor = texelFetch(tex, ivec2(scoord), 0);
+        } else if (samplingAlgorithm == 4) { // top right
+            // nearest neighbor
+        } else if (samplingAlgorithm == 5) { // top right
+            // nearest neighbor
+            fragColor = texelFetch(tex, ivec2(round(scoord-vec2(0.5,0.5))), 0) - texelFetch(tex, ivec2(scoord), 0);
+        }
     } else {
         discard;
     }
@@ -258,7 +222,6 @@ const positionLocation = gl.getAttribLocation(program, "position");
 const texcoordLocation = gl.getAttribLocation(program, "texcoord");
 
 // get uniforms
-const matrixLocation = gl.getUniformLocation(program, "matrix");
 const canvasSizeLocation = gl.getUniformLocation(program, "canvasSize");
 const scaleLocation = gl.getUniformLocation(program, "scale");
 const angleLocation = gl.getUniformLocation(program, "angle");
@@ -266,6 +229,7 @@ const offsetLocation = gl.getUniformLocation(program, "offset");
 const textureLocation = gl.getUniformLocation(program, "texture");
 const resolutionLocation = gl.getUniformLocation(program, "resolution");
 const centerLocation = gl.getUniformLocation(program, "center");
+const samplingAlgorithmLocation = gl.getUniformLocation(program, "samplingAlgorithm");
 
 // Create a buffer.
 let positionBuffer = gl.createBuffer();
@@ -346,10 +310,10 @@ function drawCanvas() {
   if (!img) {
     return;
   }
-  const quadrantWidth = Math.floor(canvas.width / 2);
+  const quadrantWidth = Math.floor(canvas.width / 3);
   const quadrantHeight = Math.floor(canvas.height / 2);
 
-  let scaleFactor = 1, displayWidth, displayHeight, angle;
+  let scaleFactor = 1, displayWidth, displayHeight, angle = 0;
 
   // Compute scale and rotation based on mouse position in the first quadrant
   if (mousePos) {
@@ -357,12 +321,13 @@ function drawCanvas() {
     const dy = mousePos.y - quadrantHeight / 2;
     const diameter = Math.sqrt(dx * dx + dy * dy) * 2;
     scaleFactor = diameter / Math.sqrt(img.width * img.width + img.height * img.height);
-    angle = Math.atan2(dy, dx) - Math.atan2(img.height, img.width);
+    if (useAngle) {
+      angle = Math.atan2(dy, dx) - Math.atan2(img.height, img.width);
+    }
   } else {
     const widthScaleFactor = quadrantWidth / img.width;
     const heightScaleFactor = quadrantHeight / img.height;
     scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
-    angle = 0;
   }
   displayWidth = img.width * scaleFactor;
   displayHeight = img.height * scaleFactor;
@@ -379,11 +344,12 @@ function drawCanvas() {
   gl.uniform1f(angleLocation, angle);
 
   // Draw the image in each quadrant with the same scale and rotation
-  for (let i = 0; i < 4; ++i) {
-    const centerX = ((i % 2 + 0.5) * quadrantWidth);
-    const centerY = ((Math.floor(i / 2) + 0.5) * quadrantHeight);
+  for (let i = 0; i < 6; ++i) {
+    const centerX = ((i % 3 + 0.5) * quadrantWidth);
+    const centerY = ((Math.floor(i / 3) + 0.5) * quadrantHeight);
 
     gl.uniform2f(centerLocation, centerX, centerY);
+    gl.uniform1i(samplingAlgorithmLocation, i);
 
     drawImage(tex.texture,
       displayWidth,
@@ -412,57 +378,9 @@ function drawImage(tex, texWidth, texHeight, dstX, dstY, angle) {
   gl.enableVertexAttribArray(texcoordLocation);
   gl.vertexAttribPointer(texcoordLocation, 2, gl.FLOAT, false, 0, 0);
 
-  const sw = texWidth / gl.canvas.width;
-  const sh = texHeight / gl.canvas.height;
-
-  // matrix = new Float32Array([
-  //   Math.cos(angle), -Math.sin(angle), 0.0, 0.0,
-  //   Math.sin(angle), Math.cos(angle), 0.0, 0.0,
-  //   0.0, 0.0, 1.0, 0.0,
-  //   0.0, 0.0, 0.0, 1.0,
-  // ]);
   gl.uniform2f(canvasSizeLocation, gl.canvas.width, gl.canvas.height);
   gl.uniform2f(scaleLocation, texWidth, texHeight);
   gl.uniform2f(offsetLocation, dstX, dstY);
-  matrix = new Float32Array([
-    2 * sw, 0.0, 0.0, 0.0,
-    0.0, -2 * sh, 0.0, 0.0,
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0,
-  ]);
-  // matrix = new Float32Array([
-  //   2 * sw, 0.0, 0.0, 0.0,
-  //   0.0, -2 * sh, 0.0, 0.0,
-  //   0.0, 0.0, 1.0, 0.0,
-  //   (dstX / gl.canvas.width * 2) - 1 - sw, (dstY / gl.canvas.height * 2) - 1 + sh, 0.0, 1.0,
-  // ]);
-  // rotm = [
-  //   Math.cos(angle), -Math.sin(angle),
-  //   Math.sin(angle), Math.cos(angle),
-  // ]
-  let dst = new Float32Array(16);
-  dst = matrix;
-  // // dst[0] = matrix[0] * Math.cos(angle);
-  // // dst[4] = matrix[4] * Math.cos(angle);
-  // // dst[8] = matrix[8] * Math.cos(angle);
-  // dst[12] = matrix[12] * Math.cos(angle) + matrix[13] * Math.sin(angle);
-  // // dst[1] = matrix[1] * -Math.sin(angle);
-  // // dst[5] = matrix[5] * -Math.sin(angle);
-  // // dst[9] = matrix[9] * -Math.sin(angle);
-  // dst[13] = matrix[12] * -Math.sin(angle) + matrix[13] * Math.cos(angle);
-  // // dst[0] = matrix[0] * -Math.sin(angle);
-  // // dst[15] = 1.0;
-
-  matrix = dst;
-
-  // console.log("matrix changed");
-  // console.log(matrix.slice(0, 4));
-  // console.log(matrix.slice(4, 8));
-  // console.log(matrix.slice(8, 12));
-  // console.log(matrix.slice(12, 16));
-
-  // Set the matrix.
-  gl.uniformMatrix4fv(matrixLocation, false, matrix);
 
   // Tell the shader to get the texture from texture unit 0
   gl.uniform1i(textureLocation, 0);
@@ -470,31 +388,3 @@ function drawImage(tex, texWidth, texHeight, dstX, dstY, angle) {
   // draw the quad (2 triangles, 6 vertices)
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
-
-
-  // // Create and bind a buffer for position
-  // const positionBuffer = gl.createBuffer();
-  // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  // const positionLocation = gl.getAttribLocation(program, "a_position");
-  // gl.enableVertexAttribArray(positionLocation);
-  // gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-  // // Draw the image in each quadrant with the same scale and rotation
-  // for (let i = 0; i < 4; ++i) {
-  //   const centerX = ((i % 2 + 0.5) * quadrantWidth);
-  //   const centerY = ((Math.floor(i / 2) + 0.5) * quadrantHeight);
-
-  //   const rectangle = [
-  //     centerX - displayWidth / 2, centerY - displayHeight / 2,
-  //     centerX + displayWidth / 2, centerY - displayHeight / 2,
-  //     centerX - displayWidth / 2, centerY + displayHeight / 2,
-  //     centerX + displayWidth / 2, centerY + displayHeight / 2
-  //   ];
-  //   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rectangle), gl.STATIC_DRAW);
-
-  //   const colorLocation = gl.getUniformLocation(program, "u_color");
-  //   gl.uniform4f(colorLocation, i / 4, 0, 0, 1);  // change the color for each quadrant
-
-  //   // Draw the rectangle
-  //   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  // }
