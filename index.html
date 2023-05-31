@@ -31,7 +31,132 @@
     <div id="uploadContainer">
         <input type="file" id="imageFile" onchange="handleImageUpload()">
     </div>
-    <canvas id="imageCanvas"></canvas>
-    <script src="script.js"></script>
+    <canvas id="imageCanvas"/>
+    <script id="vertex-shader" type="x-shader/x-vertex">#version 300 es
+in vec4 position;
+in vec2 texcoord;
+
+uniform vec2 canvasSize;
+uniform vec2 scale;
+uniform float angle;
+uniform vec2 offset;
+
+out vec2 v_texcoord;
+
+void main() {
+    mat4 transformation = mat4(
+        2.0*scale.x*cos(angle)/canvasSize.x, -2.0*scale.x*sin(angle)/canvasSize.y, 0.0, 0.0,
+        -2.0*scale.y*sin(angle)/canvasSize.x, -2.0*scale.y*cos(angle)/canvasSize.y, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        -1.0 + (2.0*offset.x - scale.x*cos(angle) + scale.y*sin(angle))/canvasSize.x,
+        -1.0 + (2.0*offset.y + scale.x*sin(angle) + scale.y*cos(angle))/canvasSize.y, 0.0, 1.0
+    );
+
+    gl_Position = transformation * position;
+    v_texcoord = texcoord;
+}
+    </script>
+    <script id="fragment-shader" type="x-shader/x-fragment" >#version 300 es
+precision mediump float;
+
+in vec2 v_texcoord;
+out vec4 fragColor;
+uniform sampler2D tex;
+uniform ivec2 resolution;
+uniform vec2 center;
+uniform int samplingAlgorithm;
+
+vec4 getPixel(vec2 scoord) {
+    return texelFetch(tex, ivec2(scoord), 0);
+}
+
+vec4 secondDegree(vec4 a, vec4 b, float d) {
+    if (d < 0.5) {
+        return a + 2. * (b - a) * d * d;
+    } else {
+        return b - 2. * (b - a) * (d - 1.) * (d - 1.);
+    }
+}
+
+vec4 thirdDegree(vec4 a, vec4 b, float x) {
+    return mix(a, b, -x * x * (2.0*x-3.0));
+}
+
+void main() {
+    vec2 coord = v_texcoord;
+    vec2 scoord = coord * vec2(textureSize(tex, 0)) - vec2(0.5,0.5); // scaled coord
+    vec2 centered = (gl_FragCoord.xy - center) / vec2(resolution) * 2.0;
+    centered = abs(vec2(centered.x * 3.0, centered.y * 2.0));
+    float mask = max(centered.x, centered.y);
+    mask = clamp(1.0 - floor(mask), 0.0, 1.0);
+
+    // don't draw anything if outside of assigned subimage
+    if (mask < 1.0) {
+        discard;
+    }
+
+    // vec4 tr = getPixel(vec2(ceil(scoord.x), ceil(scoord.y)));
+    // vec4 tl = getPixel(vec2(floor(scoord.x), ceil(scoord.y)));
+    // vec4 br = getPixel(vec2(ceil(scoord.x), floor(scoord.y)));
+    // vec4 bl = getPixel(vec2(floor(scoord.x), floor(scoord.y)));
+    // vec4 tr = getPixel(vec2(floored_coord.x + 1.0, floored_coord.y + 1.0));
+    // vec4 tl = getPixel(vec2(floored_coord.x, floored_coord.y + 1.0));
+    // vec4 br = getPixel(vec2(floored_coord.x + 1.0, floored_coord.y));
+    // vec4 bl = getPixel(vec2(floored_coord.x, floored_coord.y));
+
+    vec2 floored_coord = floor(scoord);
+    vec2 fract_coord = fract(scoord);
+    vec4 neighborhood[16];
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            neighborhood[i*4+j] = getPixel(vec2(floored_coord.x + float(j - 1), floored_coord.y + float(i - 1)));
+        }
+    }
+
+    vec4 tr = neighborhood[10];
+    vec4 tl = neighborhood[9];
+    vec4 br = neighborhood[6];
+    vec4 bl = neighborhood[5];
+    if (samplingAlgorithm == 0) { // bottom left
+        // bilinear
+        // fragColor = texture(tex, coord, 0.0); // built in bilinear
+        fragColor = mix(
+            mix(bl,br, fract_coord.x),
+            mix(tl,tr, fract_coord.x),
+            fract_coord.y
+        );
+     } else if (samplingAlgorithm == 1) { // bottom center
+        // third degree polynomial interpolation
+        fragColor = thirdDegree(
+            thirdDegree(bl,br, fract_coord.x),
+            thirdDegree(tl,tr, fract_coord.x),
+            fract_coord.y
+        );
+    } else if (samplingAlgorithm == 2) { // bottom right
+        // piecewise second degree polynomial interpolation
+        fragColor = secondDegree(
+            secondDegree(bl,br, fract_coord.x),
+            secondDegree(tl,tr, fract_coord.x),
+            fract_coord.y
+        );
+    } else if (samplingAlgorithm == 3) { // top left
+        // nearest neighbor
+        fragColor = texelFetch(tex, ivec2(round(scoord)), 0);
+    } else if (samplingAlgorithm == 4) { // top center
+        // bicubic
+        // TODO
+    } else if (samplingAlgorithm == 5) { // top right
+        // piecewise second degree polynomial interpolation - nearest neighbor
+        fragColor = secondDegree(
+            secondDegree(bl,br, fract_coord.x),
+            secondDegree(tl,tr, fract_coord.x),
+            fract_coord.y
+        );
+        fragColor = abs(fragColor - texelFetch(tex, ivec2(round(scoord)), 0));
+    }
+}
+    </script>
+    <script src="script.js"> </script>
+
 </body>
 </html>
