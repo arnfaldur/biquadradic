@@ -70,16 +70,25 @@ vec4 getPixel(vec2 scoord) {
     return texelFetch(tex, ivec2(scoord), 0);
 }
 
-vec4 secondDegree(vec4 a, vec4 b, float d) {
-    if (d < 0.5) {
-        return a + 2. * (b - a) * d * d;
+vec4 secondDegree(vec4 a, vec4 b, float x) {
+    if (x < 0.5) {
+        return a + 2. * (b - a) * x * x;
     } else {
-        return b - 2. * (b - a) * (d - 1.) * (d - 1.);
+        return b - 2. * (b - a) * (x - 1.) * (x - 1.);
     }
 }
 
 vec4 thirdDegree(vec4 a, vec4 b, float x) {
-    return mix(a, b, -x * x * (2.0*x-3.0));
+    //return mix(a, b, -x * x * (2.0*x-3.0));
+    return mix(a, b, -2. * x * x * x + 3. * x * x);
+}
+
+vec4 cubic(vec4 a, vec4 b, vec4 c, vec4 d, float x) {
+    vec4 p0 = -.5*a + 1.5*b - 1.5*c + .5*d;
+    vec4 p1 = a - 2.5*b + 2.*c - .5*d;
+    vec4 p2 = -0.5*a + 0.5*c;
+    vec4 p3 = b;
+    return p0 * x * x * x + p1 * x * x + p2 * x + p3;
 }
 
 void main() {
@@ -94,15 +103,6 @@ void main() {
     if (mask < 1.0) {
         discard;
     }
-
-    // vec4 tr = getPixel(vec2(ceil(scoord.x), ceil(scoord.y)));
-    // vec4 tl = getPixel(vec2(floor(scoord.x), ceil(scoord.y)));
-    // vec4 br = getPixel(vec2(ceil(scoord.x), floor(scoord.y)));
-    // vec4 bl = getPixel(vec2(floor(scoord.x), floor(scoord.y)));
-    // vec4 tr = getPixel(vec2(floored_coord.x + 1.0, floored_coord.y + 1.0));
-    // vec4 tl = getPixel(vec2(floored_coord.x, floored_coord.y + 1.0));
-    // vec4 br = getPixel(vec2(floored_coord.x + 1.0, floored_coord.y));
-    // vec4 bl = getPixel(vec2(floored_coord.x, floored_coord.y));
 
     vec2 floored_coord = floor(scoord);
     vec2 fract_coord = fract(scoord);
@@ -144,15 +144,21 @@ void main() {
         fragColor = texelFetch(tex, ivec2(round(scoord)), 0);
     } else if (samplingAlgorithm == 4) { // top center
         // bicubic
-        // TODO
+        fragColor = clamp(cubic(
+            cubic(neighborhood[0], neighborhood[1], neighborhood[2], neighborhood[3], fract_coord.x),
+            cubic(neighborhood[4], neighborhood[5], neighborhood[6], neighborhood[7], fract_coord.x),
+            cubic(neighborhood[8], neighborhood[9], neighborhood[10], neighborhood[11], fract_coord.x),
+            cubic(neighborhood[12], neighborhood[13], neighborhood[14], neighborhood[15], fract_coord.x),
+            fract_coord.y
+        ), 0., 1.);
     } else if (samplingAlgorithm == 5) { // top right
         // piecewise second degree polynomial interpolation - nearest neighbor
-        fragColor = secondDegree(
-            secondDegree(bl,br, fract_coord.x),
-            secondDegree(tl,tr, fract_coord.x),
-            fract_coord.y
-        );
-        fragColor = abs(fragColor - texelFetch(tex, ivec2(round(scoord)), 0));
+        // fragColor = secondDegree(
+//     secondDegree(bl,br, fract_coord.x),
+//     secondDegree(tl,tr, fract_coord.x),
+//     fract_coord.y
+// );
+// fragColor = abs(fragColor - texelFetch(tex, ivec2(round(scoord)), 0));
     }
 }
     </script>
