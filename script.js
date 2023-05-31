@@ -167,7 +167,7 @@ void main() {
     );
 
     mat4 transformation = identity;
-    // transformation = centerTranslate * transformation;
+    transformation = centerTranslate * transformation;
     // transformation = inverse(canvasScale) * transformation;
     // transformation = scaling * transformation;
     // transformation = reflect * transformation;
@@ -180,7 +180,46 @@ void main() {
     // transformation = centerTranslate * transformation;
     // transformation = doubleScale * transformation;
 
-    transformation = doubleScale * centerTranslate * inverse(canvasScale) * translation * canvasScale * inverse(aspectScale) * rotation * aspectScale * reflect * scaling * inverse(canvasScale) * centerTranslate * transformation;
+    // transformation = doubleScale * centerTranslate * inverse(canvasScale) * translation * canvasScale * inverse(aspectScale) * rotation * aspectScale * reflect * scaling * inverse(canvasScale) * centerTranslate * transformation;
+
+    mat4 initialPosition = mat4(
+        scale.x/canvasSize.x, 0.0, 0.0, 0.0,
+        0.0, -scale.y/canvasSize.y, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 scaledRotation = mat4(
+        cos(angle), -canvasSize.x*sin(angle)/canvasSize.y, 0.0, 0.0,
+        canvasSize.y*sin(angle)/canvasSize.x, cos(angle), 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 scaledTranslation = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        offset.x/canvasSize.x, offset.y/canvasSize.y, 0.0, 1.0
+    );
+    mat4 doubleTranslate = mat4(
+        2.0, 0.0, 0.0, 0.0,
+        0.0, 2.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        -1, -1, 0.0, 1.0
+    );
+    transformation = initialPosition * transformation;
+    transformation = scaledRotation * transformation;
+    transformation = scaledTranslation * transformation;
+    transformation = doubleTranslate * transformation;
+
+    //gl_Position = doubleTranslate * scaledTranslation * scaledRotation * initialPosition * position;
+
+    transformation = mat4(
+        2.0*scale.x*cos(angle)/canvasSize.x, -2.0*scale.x*sin(angle)/canvasSize.y, 0.0, 0.0,
+        -2.0*scale.y*sin(angle)/canvasSize.x, -2.0*scale.y*cos(angle)/canvasSize.y, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        -1.0 + (2.0*offset.x - scale.x*cos(angle) + scale.y*sin(angle))/canvasSize.x, -1.0 + (2.0*offset.y + scale.x*sin(angle) + scale.y*cos(angle))/canvasSize.y, 0.0, 1.0
+    );
+
     gl_Position = transformation * position;
     v_texcoord = texcoord;
 }
