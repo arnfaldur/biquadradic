@@ -75,7 +75,7 @@ function createShader(gl, type, source) {
   gl.compileShader(shader);
   const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
   if (success) {
-    console.log("WebGL shader created", type);
+    console.log("WebGL shader created");
     return shader;
   }
   console.log(gl.getShaderInfoLog(shader));
@@ -99,17 +99,90 @@ function createProgram(gl, vertexShader, fragmentShader) {
 
 // Vertex shader
 const vertexShaderSource = `#version 300 es
-in vec4 a_position;
-in vec2 a_texcoord;
+in vec4 position;
+in vec2 texcoord;
 
-uniform mat4 u_matrix;
+uniform mat4 matrix;
+uniform vec2 canvasSize;
+uniform vec2 scale;
+uniform float angle;
+uniform vec2 offset;
 
 out vec2 v_texcoord;
 
 void main() {
-    vec4 pos = u_matrix * a_position;
-    gl_Position = pos;
-    v_texcoord = a_texcoord;
+    mat4 identity = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 canvasScale = mat4(
+        canvasSize.x, 0.0, 0.0, 0.0,
+        0.0, canvasSize.y, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 aspectScale = mat4(
+        canvasSize.x/canvasSize.y, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 reflect = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, -1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 scaling = mat4(
+        scale.x, 0.0, 0.0, 0.0,
+        0.0, scale.y, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 rotation = mat4(
+        cos(angle), -sin(angle), 0.0, 0.0,
+        sin(angle), cos(angle), 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 translation = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        offset.x, offset.y, 0.0, 1.0
+    );
+    mat4 centerTranslate = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        -0.5, -0.5, 0.0, 1.0
+    );
+    mat4 doubleScale = mat4(
+        2.0, 0.0, 0.0, 0.0,
+        0.0, 2.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+
+    mat4 transformation = identity;
+    // transformation = centerTranslate * transformation;
+    // transformation = inverse(canvasScale) * transformation;
+    // transformation = scaling * transformation;
+    // transformation = reflect * transformation;
+    // transformation = aspectScale * transformation;
+    // transformation = rotation * transformation;
+    // transformation = inverse(aspectScale) * transformation;
+    // transformation = canvasScale * transformation;
+    // transformation = translation * transformation;
+    // transformation = inverse(canvasScale) * transformation;
+    // transformation = centerTranslate * transformation;
+    // transformation = doubleScale * transformation;
+
+    transformation = doubleScale * centerTranslate * inverse(canvasScale) * translation * canvasScale * inverse(aspectScale) * rotation * aspectScale * reflect * scaling * inverse(canvasScale) * centerTranslate * transformation;
+    gl_Position = transformation * position;
+    v_texcoord = texcoord;
 }
 `;
 
@@ -119,12 +192,21 @@ precision mediump float;
 
 in vec2 v_texcoord;
 out vec4 fragColor;
-uniform sampler2D u_texture;
+uniform sampler2D texture;
+uniform ivec2 resolution;
+uniform vec2 center;
 
 void main() {
     vec2 coord = v_texcoord;
-    fragColor = texture(u_texture, coord);
-    //fragColor = texelFetch(u_texture, ivec2(coord), 0);
+    vec2 centered = abs((gl_FragCoord.xy - center) / vec2(resolution) * 4.0);
+    float mask = max(centered.x, centered.y);
+    mask = clamp(1.0 - floor(mask), 0.0, 1.0);
+
+    if (mask > 0.0) {
+        fragColor = texelFetch(texture, ivec2(coord * vec2(textureSize(texture, 0))), 0);
+    } else {
+        discard;
+    }
 }
 `;
 
@@ -133,12 +215,18 @@ const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource
 const program = createProgram(gl, vertexShader, fragmentShader);
 
 // get vertex data
-let positionLocation = gl.getAttribLocation(program, "a_position");
-let texcoordLocation = gl.getAttribLocation(program, "a_texcoord");
+const positionLocation = gl.getAttribLocation(program, "position");
+const texcoordLocation = gl.getAttribLocation(program, "texcoord");
 
 // get uniforms
-let matrixLocation = gl.getUniformLocation(program, "u_matrix");
-let textureLocation = gl.getUniformLocation(program, "u_texture");
+const matrixLocation = gl.getUniformLocation(program, "matrix");
+const canvasSizeLocation = gl.getUniformLocation(program, "canvasSize");
+const scaleLocation = gl.getUniformLocation(program, "scale");
+const angleLocation = gl.getUniformLocation(program, "angle");
+const offsetLocation = gl.getUniformLocation(program, "offset");
+const textureLocation = gl.getUniformLocation(program, "texture");
+const resolutionLocation = gl.getUniformLocation(program, "resolution");
+const centerLocation = gl.getUniformLocation(program, "center");
 
 // Create a buffer.
 let positionBuffer = gl.createBuffer();
@@ -247,11 +335,16 @@ function drawCanvas() {
 
   gl.useProgram(program);
 
+  // * // Set uniforms for resolution
+  gl.uniform2i(resolutionLocation, canvas.width, canvas.height);
+  gl.uniform1f(angleLocation, angle);
 
   // Draw the image in each quadrant with the same scale and rotation
   for (let i = 0; i < 4; ++i) {
     const centerX = ((i % 2 + 0.5) * quadrantWidth);
     const centerY = ((Math.floor(i / 2) + 0.5) * quadrantHeight);
+
+    gl.uniform2f(centerLocation, centerX, centerY);
 
     drawImage(tex.texture,
       displayWidth,
@@ -270,7 +363,7 @@ function drawImage(tex, texWidth, texHeight, dstX, dstY, angle) {
   gl.bindTexture(gl.TEXTURE_2D, tex);
 
   // Tell WebGL to use our shader program pair
-  gl.useProgram(program);
+  // gl.useProgram(program);
 
   // Setup the attributes to pull data from our buffers
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -283,29 +376,45 @@ function drawImage(tex, texWidth, texHeight, dstX, dstY, angle) {
   const sw = texWidth / gl.canvas.width;
   const sh = texHeight / gl.canvas.height;
 
+  // matrix = new Float32Array([
+  //   Math.cos(angle), -Math.sin(angle), 0.0, 0.0,
+  //   Math.sin(angle), Math.cos(angle), 0.0, 0.0,
+  //   0.0, 0.0, 1.0, 0.0,
+  //   0.0, 0.0, 0.0, 1.0,
+  // ]);
+  gl.uniform2f(canvasSizeLocation, gl.canvas.width, gl.canvas.height);
+  gl.uniform2f(scaleLocation, texWidth, texHeight);
+  gl.uniform2f(offsetLocation, dstX, dstY);
   matrix = new Float32Array([
     2 * sw, 0.0, 0.0, 0.0,
     0.0, -2 * sh, 0.0, 0.0,
-    0.0, 0.0, 0.0, 0.0,
-    (dstX / gl.canvas.width * 2) - 1 - sw, (dstY / gl.canvas.height * 2) - 1 + sh, 0.0, 1.0,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0,
   ]);
+  // matrix = new Float32Array([
+  //   2 * sw, 0.0, 0.0, 0.0,
+  //   0.0, -2 * sh, 0.0, 0.0,
+  //   0.0, 0.0, 1.0, 0.0,
+  //   (dstX / gl.canvas.width * 2) - 1 - sw, (dstY / gl.canvas.height * 2) - 1 + sh, 0.0, 1.0,
+  // ]);
   // rotm = [
   //   Math.cos(angle), -Math.sin(angle),
   //   Math.sin(angle), Math.cos(angle),
   // ]
-  // let dst = new Float32Array(16);
-  // dst[0] = matrix[0] * Math.cos(angle);
-  // dst[4] = matrix[4] * Math.cos(angle);
-  // dst[8] = matrix[8] * Math.cos(angle);
+  let dst = new Float32Array(16);
+  dst = matrix;
+  // // dst[0] = matrix[0] * Math.cos(angle);
+  // // dst[4] = matrix[4] * Math.cos(angle);
+  // // dst[8] = matrix[8] * Math.cos(angle);
   // dst[12] = matrix[12] * Math.cos(angle) + matrix[13] * Math.sin(angle);
-  // //dst[1] = matrix[1] * -Math.sin(angle);
-  // dst[5] = matrix[5] * -Math.sin(angle);
-  // //dst[9] = matrix[9] * -Math.sin(angle);
+  // // dst[1] = matrix[1] * -Math.sin(angle);
+  // // dst[5] = matrix[5] * -Math.sin(angle);
+  // // dst[9] = matrix[9] * -Math.sin(angle);
   // dst[13] = matrix[12] * -Math.sin(angle) + matrix[13] * Math.cos(angle);
-  // //dst[0] = matrix[0] * -Math.sin(angle);
-  // dst[15] = 1.0;
+  // // dst[0] = matrix[0] * -Math.sin(angle);
+  // // dst[15] = 1.0;
 
-  // matrix = dst;
+  matrix = dst;
 
   // console.log("matrix changed");
   // console.log(matrix.slice(0, 4));
@@ -323,10 +432,6 @@ function drawImage(tex, texWidth, texHeight, dstX, dstY, angle) {
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
-
-  // * // Set uniforms for resolution
-  // const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-  // gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
 
   // // Create and bind a buffer for position
   // const positionBuffer = gl.createBuffer();
