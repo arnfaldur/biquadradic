@@ -90,6 +90,26 @@ vec4 cubic(vec4 a, vec4 b, vec4 c, vec4 d, float x) {
     vec4 p3 = b;
     return p0 * x * x * x + p1 * x * x + p2 * x + p3;
 }
+vec4 cubic2(vec4 a, vec4 b, vec4 c, vec4 d, float x) {
+    vec4 db = (c-a) / 4.;
+    vec4 dc = (d-b) / 4.;
+
+    //vec4 blims = (.5 - abs(b-.5)) * 3.;
+    // vec4 blims = (.5 - 2.*(b-.5)*(b-.5));
+    // db = clamp(db, -blims, blims);
+
+    //vec4 clims = (.5 - abs(c-.5)) * 3.;
+    // vec4 clims = (.5 - 2.*(c-.5)*(c-.5));
+    // dc = clamp(dc, -clims, clims);
+
+
+
+    vec4 p0 = 2.*b - 2.*c + db + dc;
+    vec4 p1 = -3.*b + 3.*c - 2.*db - dc;
+    vec4 p2 = db;
+    vec4 p3 = b;
+    return p0 * x * x * x + p1 * x * x + p2 * x + p3;
+}
 
 void main() {
     vec2 coord = v_texcoord;
@@ -144,21 +164,64 @@ void main() {
         fragColor = texelFetch(tex, ivec2(round(scoord)), 0);
     } else if (samplingAlgorithm == 4) { // top center
         // bicubic
-        fragColor = clamp(cubic(
+        fragColor = cubic(
             cubic(neighborhood[0], neighborhood[1], neighborhood[2], neighborhood[3], fract_coord.x),
             cubic(neighborhood[4], neighborhood[5], neighborhood[6], neighborhood[7], fract_coord.x),
             cubic(neighborhood[8], neighborhood[9], neighborhood[10], neighborhood[11], fract_coord.x),
             cubic(neighborhood[12], neighborhood[13], neighborhood[14], neighborhood[15], fract_coord.x),
             fract_coord.y
-        ), 0., 1.);
+        );
+         float low = 0.;
+         float high = 1.;
+         if (fragColor.r > high) {
+             fragColor.r = .8;
+         } else if (fragColor.r < low) {
+             fragColor.r = .2;
+         }
+         if (fragColor.g > high) {
+             fragColor.g = .8;
+         } else if (fragColor.g < low) {
+             fragColor.g = .2;
+         }
+         if (fragColor.b > high) {
+             fragColor.b = .8;
+         } else if (fragColor.b < low) {
+             fragColor.b = .2;
+         }
+
     } else if (samplingAlgorithm == 5) { // top right
         // piecewise second degree polynomial interpolation - nearest neighbor
+        // bicubic 2
+        fragColor = cubic2(
+            cubic2(neighborhood[0], neighborhood[1], neighborhood[2], neighborhood[3], fract_coord.x),
+            cubic2(neighborhood[4], neighborhood[5], neighborhood[6], neighborhood[7], fract_coord.x),
+            cubic2(neighborhood[8], neighborhood[9], neighborhood[10], neighborhood[11], fract_coord.x),
+            cubic2(neighborhood[12], neighborhood[13], neighborhood[14], neighborhood[15], fract_coord.x),
+            fract_coord.y
+        );
+         float low = 0.;
+         float high = 1.;
+         if (fragColor.r > high) {
+             fragColor.r = .8;
+         } else if (fragColor.r < low) {
+             fragColor.r = .2;
+         }
+         if (fragColor.g > high) {
+             fragColor.g = .8;
+         } else if (fragColor.g < low) {
+             fragColor.g = .2;
+         }
+         if (fragColor.b > high) {
+             fragColor.b = .8;
+         } else if (fragColor.b < low) {
+             fragColor.b = .2;
+         }
         // fragColor = secondDegree(
-//     secondDegree(bl,br, fract_coord.x),
-//     secondDegree(tl,tr, fract_coord.x),
-//     fract_coord.y
-// );
-// fragColor = abs(fragColor - texelFetch(tex, ivec2(round(scoord)), 0));
+        //     secondDegree(bl,br, fract_coord.x),
+        //     secondDegree(tl,tr, fract_coord.x),
+        //     fract_coord.y
+        // );
+        // fragColor = abs(fragColor - texelFetch(tex, ivec2(round(scoord)), 0));
     }
 }
     </script>
